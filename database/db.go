@@ -16,10 +16,14 @@ var DB *sql.DB
 
 func InitDB(filepath string) error {
 	var err error
-	DB, err = sql.Open("sqlite", filepath)
+	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", filepath)
+	DB, err = sql.Open("sqlite", dsn)
 	if err != nil {
 		return fmt.Errorf("ошибка подключения к SQLite: %v", err)
 	}
+
+	DB.SetMaxOpenConns(1)
+	DB.SetMaxIdleConns(1)
 
 	userTableQuery := `
 	CREATE TABLE IF NOT EXISTS users (
