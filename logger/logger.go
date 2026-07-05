@@ -2,6 +2,7 @@ package logger
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,6 +27,22 @@ var (
 func maskIPs(input string) string {
 	return ipv4Regex.ReplaceAllString(input, "${1}xxx")
 }
+func rotateLogFile(filePath string, maxSize int64) {
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return // Файла нет или недоступен
+	}
+
+	if info.Size() < maxSize {
+		return // Ротация не требуется
+	}
+	for i := 4; i >= 1; i-- {
+		oldFile := fmt.Sprintf("%s.%d", filePath, i)
+		newFile := fmt.Sprintf("%s.%d", filePath, i+1)
+		_ = os.Rename(oldFile, newFile)
+	}
+	_ = os.Rename(filePath, filePath+".1")
+}
 
 func logEvent(level, component, msg string) {
 	if database.GetSetting("log_mask_ips", "1") == "1" {
@@ -39,12 +56,14 @@ func logEvent(level, component, msg string) {
 		Message:   msg,
 	}
 
-		jsonBytes, err := json.Marshal(entry)
+	jsonBytes, err := json.Marshal(entry)
 	if err == nil {
 		logFileMu.Lock()
 		dir := "logs"
 		_ = os.MkdirAll(dir, 0755)
 		filePath := filepath.Join(dir, "master.log")
+		rotateLogFile(filePath, 10*1024*1024)
+
 		f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 		if err == nil {
 			_, _ = f.Write(append(jsonBytes, '\n'))
@@ -53,7 +72,7 @@ func logEvent(level, component, msg string) {
 		logFileMu.Unlock()
 	}
 
-		if component == "system" || component == "database" {
+	if component == "system" || component == "database" {
 		_, _ = database.DB.Exec("INSERT INTO system_logs (level, component, message, created_at) VALUES (?, ?, ?, ?)",
 			entry.Level, entry.Component, entry.Message, entry.Time.Format("2006-01-02 15:04:05"))
 	}

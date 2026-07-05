@@ -1,8 +1,10 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,7 +13,11 @@ import (
 	"vpn-master/database"
 	"vpn-master/logger"
 	"vpn-master/worker"
+
+	"github.com/gorilla/websocket"
+	"golang.org/x/crypto/acme/autocert"
 )
+
 type UserSpeed struct {
 	DownloadSpeed int64 `json:"download_speed"`
 	UploadSpeed   int64 `json:"upload_speed"`
@@ -58,12 +64,22 @@ type NodeInfo struct {
 	ActiveConnections []ActiveConnInfo `json:"active_connections,omitempty"`
 }
 
+type NodeConn struct {
+	NodeID  string
+	Conn    *websocket.Conn
+	Mu      sync.Mutex
+	LogChan chan []byte
+}
+
 var (
 	userSpeeds      = make(map[string]*UserSpeed)
 	userSpeedsMutex sync.RWMutex
 
 	activeNodes      = make(map[string]*NodeInfo)
 	activeNodesMutex sync.RWMutex
+
+	NodeConnections = make(map[string]*NodeConn)
+	NodeConnMutex   sync.RWMutex
 )
 
 func main() {
@@ -78,7 +94,7 @@ func main() {
 	}
 	logger.Info("system", "Мастер-база данных panel.db успешно инициализирована")
 
-		go worker.StartBillingWorker()
+	go worker.StartBillingWorker()
 	go worker.StartTrafficResetWorker()
 	go worker.StartTrafficHistoryLogger()
 	go worker.StartLogRetentionWorker()
@@ -88,6 +104,36 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
+	}
+	enableAcme := database.GetSetting("enable_acme", "0")
+	acmeDomain := database.GetSetting("acme_domain", "")
+
+	if enableAcme == "1" && acmeDomain != "" {
+		certManager := autocert.Manager{
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(acmeDomain),
+			Cache:      autocert.DirCache("/var/aimatos/certs"),
+		}
+		go func() {
+			log.Printf("[Master ACME] HTTP-сервер для ACME-вызовов запущен на порту 80")
+			if err := http.ListenAndServe(":80", certManager.HTTPHandler(nil)); err != nil {
+				log.Printf("[Master ACME] Ошибка запуска ACME HTTP: %v", err)
+			}
+		}()
+		go func() {
+			log.Printf("[Master ACME] Secure HTTPS-сервер запущен для домена: %s (Порт 443)", acmeDomain)
+			server := &http.Server{
+				Addr:    ":443",
+				Handler: r,
+				TLSConfig: &tls.Config{
+					GetCertificate: certManager.GetCertificate,
+					MinVersion:     tls.VersionTLS12,
+				},
+			}
+			if err := server.ListenAndServeTLS("", ""); err != nil {
+				log.Printf("[Master ACME] Ошибка запуска HTTPS: %v", err)
+			}
+		}()
 	}
 
 	logger.Info("system", "Веб-сервер API запущен на порту "+port)

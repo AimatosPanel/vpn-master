@@ -1,0 +1,31 @@
+# Binaries
+vpn-master
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go
+vendor/
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Env
+.env
+.env.*
+
+# Air
+tmp/
+
+# Build
+bin/
+dist/

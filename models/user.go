@@ -21,4 +21,10 @@ type User struct {
 	CreatedAt            time.Time  `json:"created_at"`
 	DownloadSpeed        int64      `json:"download_speed"`
 	UploadSpeed          int64      `json:"upload_speed"`
+	Online               bool       `json:"online"`
+	Note                 string     `json:"note"`      
+	LastSeen             int64      `json:"last_seen"` 
+	DeviceLimit          int        `json:"device_limit"`
+	FallbackAction       string     `json:"fallback_action"`
+	FallbackSpeedLimit   int        `json:"fallback_speed_limit"`
 }
