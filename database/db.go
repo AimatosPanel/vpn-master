@@ -1,4 +1,4 @@
-package database
+﻿package database
 
 import (
 	"crypto/ecdh"
@@ -109,7 +109,13 @@ func InitDB(filepath string) error {
 	var adminCount int
 	err = DB.QueryRow("SELECT COUNT(*) FROM admins").Scan(&adminCount)
 	if err == nil && adminCount == 0 && rootRoleID > 0 {
-		defaultPassword := "adminpassword"
+		// Генерация случайного пароля длиной 24 символа (12 байт в формате hex)
+		defaultPassword, errGen := utils.GeneratePassword(12)
+		if errGen != nil {
+			// Резервный надежный пароль на случай сбоя генератора энтропии
+			defaultPassword = "FallbackSecurePassword123!" 
+		}
+
 		hashed, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), 12)
 		if err == nil {
 			_, err = DB.Exec("INSERT INTO admins (username, password_hash, role_id, is_root, email) VALUES (?, ?, ?, ?, ?)",
@@ -117,7 +123,13 @@ func InitDB(filepath string) error {
 			if err == nil {
 				nowStr := time.Now().Format(time.RFC3339)
 				_, _ = DB.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('installed_at', ?)", nowStr)
-				_, _ = DB.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('plain_creds_admin', 'admin:adminpassword')")
+				
+				// Запись динамически сгенерированного пароля в БД
+				plainCreds := fmt.Sprintf("admin:%s", defaultPassword)
+				_, _ = DB.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('plain_creds_admin', ?)", plainCreds)
+				
+				// Вывод в системный лог при первом старте сервера
+				log.Printf("[Database] Сгенерирован случайный стартовый пароль администратора: %s (Логин: admin)", defaultPassword)
 			}
 		}
 	}
