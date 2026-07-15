@@ -30,11 +30,11 @@ func maskIPs(input string) string {
 func rotateLogFile(filePath string, maxSize int64) {
 	info, err := os.Stat(filePath)
 	if err != nil {
-		return // Файла нет или недоступен
+		return 
 	}
 
 	if info.Size() < maxSize {
-		return // Ротация не требуется
+		return 
 	}
 	for i := 4; i >= 1; i-- {
 		oldFile := fmt.Sprintf("%s.%d", filePath, i)

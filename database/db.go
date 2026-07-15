@@ -109,10 +109,10 @@ func InitDB(filepath string) error {
 	var adminCount int
 	err = DB.QueryRow("SELECT COUNT(*) FROM admins").Scan(&adminCount)
 	if err == nil && adminCount == 0 && rootRoleID > 0 {
-		// Генерация случайного пароля длиной 24 символа (12 байт в формате hex)
+		
 		defaultPassword, errGen := utils.GeneratePassword(12)
 		if errGen != nil {
-			// Резервный надежный пароль на случай сбоя генератора энтропии
+			
 			defaultPassword = "FallbackSecurePassword123!" 
 		}
 
@@ -124,11 +124,11 @@ func InitDB(filepath string) error {
 				nowStr := time.Now().Format(time.RFC3339)
 				_, _ = DB.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('installed_at', ?)", nowStr)
 				
-				// Запись динамически сгенерированного пароля в БД
+				
 				plainCreds := fmt.Sprintf("admin:%s", defaultPassword)
 				_, _ = DB.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES ('plain_creds_admin', ?)", plainCreds)
 				
-				// Вывод в системный лог при первом старте сервера
+				
 				log.Printf("[Database] Сгенерирован случайный стартовый пароль администратора: %s (Логин: admin)", defaultPassword)
 			}
 		}
@@ -214,7 +214,7 @@ func InitDB(filepath string) error {
 	
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('shadowsocks_method', '2022-blake3-aes-128-gcm');
 
-	-- Глобальные переключатели активности протоколов
+	
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_vless_tcp_reality', '1');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_vless_grpc_reality', '1');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_vless_h2_reality', '1');
@@ -238,7 +238,7 @@ func InitDB(filepath string) error {
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_http_tls', '1');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('enable_naive', '1');
 
-	-- Настройки портов по умолчанию
+	
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('port_vless_h2_reality', '8450');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('port_vless_quic_reality', '8451');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('port_vless_httpupgrade_reality', '8452');
@@ -258,7 +258,7 @@ func InitDB(filepath string) error {
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('port_http_tls', '8463');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('port_naive', '8446');
 
-	-- SSL сертификаты домена
+	
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('tls_cert', '');
 	INSERT OR IGNORE INTO settings (key, value) VALUES ('tls_key', '');`
 	_, _ = DB.Exec(insertDefaults)
